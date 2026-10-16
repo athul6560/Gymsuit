@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package ca.zeezaglobal.gymsuitapp.ui.screens
 
 import android.content.Context
@@ -38,6 +40,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.EditCalendar
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.outlined.Tune
@@ -76,6 +79,7 @@ import androidx.compose.ui.unit.sp
 import ca.zeezaglobal.gymsuitapp.data.HealthConnectManager
 import ca.zeezaglobal.gymsuitapp.data.WorkoutStore
 import ca.zeezaglobal.gymsuitapp.data.model.Exercise
+import ca.zeezaglobal.gymsuitapp.data.model.ExerciseMedia
 import ca.zeezaglobal.gymsuitapp.data.model.ExerciseMuscleGroups
 import org.json.JSONArray
 import org.json.JSONObject
@@ -85,6 +89,19 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.material.icons.filled.Photo
+import ca.zeezaglobal.gymsuitapp.data.model.ExerciseMedia
 
 private const val PREFS_NAME = "gymsuit_workout_plan"
 private const val KEY_SELECTED_WORKOUTS = "selected_workouts_json"
@@ -420,8 +437,22 @@ fun WorkoutsScreen(
         loadSavedSelections()
     }
 
-    // View Switching
-    when (currentViewMode) {
+    // View Switching, animated: screens fade + slide in as the user moves
+    // through the flow (calendar <-> plan <-> editor <-> steps).
+    AnimatedContent(
+        targetState = currentViewMode,
+        transitionSpec = {
+            (fadeIn(animationSpec = tween(250)) + slideInHorizontally(
+                animationSpec = tween(250),
+                initialOffsetX = { it / 8 }
+            )) togetherWith (fadeOut(animationSpec = tween(200)) + slideOutHorizontally(
+                animationSpec = tween(200),
+                targetOffsetX = { -it / 8 }
+            ))
+        },
+        label = "workouts-view"
+    ) { viewMode ->
+        when (viewMode) {
         WorkoutsViewMode.CALENDAR -> {
             WorkoutsCalendarView(
                 selectedYearMonth = selectedYearMonth,
@@ -500,6 +531,7 @@ fun WorkoutsScreen(
                 onEditSetup = { openSetupFromPlanPage() }
             )
         }
+        }
     }
 }
 
@@ -523,7 +555,7 @@ fun WorkoutsCalendarView(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFF8F9FA)),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 120.dp),
+        contentPadding = PaddingValues(top = 12.dp, bottom = 120.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         // Top Header Row with Title & Month Switcher
@@ -582,40 +614,46 @@ fun WorkoutsCalendarView(
         }
 
         // Active Plan Banner if plan already generated
-        if (activePlan != null) {
-            item {
-                ElevatedCard(
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(18.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+        item {
+            AnimatedVisibility(
+                visible = activePlan != null,
+                enter = expandVertically(animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)),
+                exit = shrinkVertically(animationSpec = tween(300)) + fadeOut(animationSpec = tween(300))
+            ) {
+                activePlan?.let { plan ->
+                    ElevatedCard(
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Active Workout Plan",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "${activePlan.sections.size} planned days • ${activePlan.totalExercises} workouts",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                            )
-                        }
-
-                        OutlinedButton(
-                            onClick = onViewPlanClick,
-                            shape = RoundedCornerShape(12.dp)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(18.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("View plan", fontSize = 12.sp)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Active Workout Plan",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "${plan.sections.size} planned days • ${plan.totalExercises} workouts",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                )
+                            }
+
+                            OutlinedButton(
+                                onClick = onViewPlanClick,
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("View plan", fontSize = 12.sp)
+                            }
                         }
                     }
                 }
@@ -731,7 +769,11 @@ fun WorkoutsCalendarView(
                         }
                     }
 
-                    if (plannedForDay.isNotEmpty()) {
+                    AnimatedVisibility(
+                        visible = plannedForDay.isNotEmpty(),
+                        enter = expandVertically(animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)),
+                        exit = shrinkVertically(animationSpec = tween(300)) + fadeOut(animationSpec = tween(300))
+                    ) {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             plannedForDay.take(3).forEach { item ->
                                 Text(
@@ -793,7 +835,7 @@ fun PlannedWorkoutsMainScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .padding(vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -894,8 +936,7 @@ fun PlannedWorkoutsMainScreen(
             // Empty state: the plan holds only user-selected workouts, and none are saved yet.
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
+                    .fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -940,10 +981,23 @@ fun PlannedWorkoutsMainScreen(
                 }
             }
         } else {
+            AnimatedContent(
+                targetState = activeSection,
+                transitionSpec = {
+                    (fadeIn(animationSpec = tween(250)) + slideInHorizontally(
+                        animationSpec = tween(250),
+                        initialOffsetX = { it / 10 }
+                    )) togetherWith (fadeOut(animationSpec = tween(200)) + slideOutHorizontally(
+                        animationSpec = tween(200),
+                        targetOffsetX = { -it / 10 }
+                    ))
+                },
+                label = "plan-day"
+            ) { section ->
+                val day = section ?: return@AnimatedContent
             LazyColumn(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
+                    .fillMaxSize(),
                 contentPadding = PaddingValues(top = 12.dp, bottom = 120.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -970,7 +1024,7 @@ fun PlannedWorkoutsMainScreen(
                                     color = MaterialTheme.colorScheme.primaryContainer
                                 ) {
                                     Text(
-                                        text = "Section ${activeSection.dayNumber} of ${plan.sections.size}",
+                                        text = "Section ${day.dayNumber} of ${plan.sections.size}",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -979,7 +1033,7 @@ fun PlannedWorkoutsMainScreen(
                                 }
 
                                 Text(
-                                    text = activeSection.scheduledDate.format(DateTimeFormatter.ofPattern("EEEE, MMM d", Locale.getDefault())),
+                                    text = day.scheduledDate.format(DateTimeFormatter.ofPattern("EEEE, MMM d", Locale.getDefault())),
                                     style = MaterialTheme.typography.bodySmall,
                                     fontWeight = FontWeight.Medium,
                                     color = Color(0xFF64748B)
@@ -989,14 +1043,14 @@ fun PlannedWorkoutsMainScreen(
                             Spacer(modifier = Modifier.height(2.dp))
 
                             Text(
-                                text = activeSection.title,
+                                text = day.title,
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF0F172A)
                             )
 
                             Text(
-                                text = "${activeSection.exercises.size} Exercises",
+                                text = "${day.exercises.size} Exercises",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = Color(0xFF64748B)
                             )
@@ -1005,7 +1059,7 @@ fun PlannedWorkoutsMainScreen(
                 }
 
                 // Empty day: no workouts selected yet for this date.
-                if (activeSection.exercises.isEmpty()) {
+                if (day.exercises.isEmpty()) {
                     item {
                         Column(
                             modifier = Modifier
@@ -1031,7 +1085,7 @@ fun PlannedWorkoutsMainScreen(
                 }
 
                 // Exercises List Header
-                if (activeSection.exercises.isNotEmpty()) item {
+                if (day.exercises.isNotEmpty()) item {
                     Text(
                         text = "Scheduled Exercises",
                         style = MaterialTheme.typography.titleMedium,
@@ -1041,14 +1095,14 @@ fun PlannedWorkoutsMainScreen(
                 }
 
                 // Exercise Cards
-                items(activeSection.exercises) { exercise ->
-                    PlannedExerciseCard(exercise = exercise)
+                items(day.exercises, key = { it.name }) { exercise ->
+                    PlannedExerciseCard(exercise = exercise, modifier = Modifier.animateItem())
                 }
 
                 // Edit this day's selected workouts
                 item {
                     OutlinedButton(
-                        onClick = { onEditDay(activeSection.scheduledDate) },
+                        onClick = { onEditDay(day.scheduledDate) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp),
@@ -1065,7 +1119,7 @@ fun PlannedWorkoutsMainScreen(
                                 modifier = Modifier.size(20.dp)
                             )
                             Text(
-                                text = if (activeSection.exercises.isEmpty()) "Add workouts" else "Edit workouts",
+                                text = if (day.exercises.isEmpty()) "Add workouts" else "Edit workouts",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -1074,10 +1128,10 @@ fun PlannedWorkoutsMainScreen(
                 }
 
                 // Material You 3 "Start Workout" Button
-                if (activeSection.exercises.isNotEmpty()) item {
+                if (day.exercises.isNotEmpty()) item {
                     Spacer(modifier = Modifier.height(6.dp))
                     Button(
-                        onClick = { onStartWorkout(activeSection) },
+                        onClick = { onStartWorkout(day) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp),
@@ -1098,12 +1152,13 @@ fun PlannedWorkoutsMainScreen(
                                 modifier = Modifier.size(22.dp)
                             )
                             Text(
-                                text = "Start Day ${activeSection.dayNumber} Workout",
+                                text = "Start Day ${day.dayNumber} Workout",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
                         }
                     }
+                }
                 }
             }
         }
@@ -1146,6 +1201,43 @@ private fun SetsRepsStepper(
     }
 }
 
+/**
+ * 64dp GIF thumbnail for a picker row: the exercise GIF (same backend-served
+ * GIFs as the detail view) when one exists, else a photo-icon placeholder.
+ * The WebView would swallow taps, so when [onClick] is given the thumbnail
+ * gets its own clickable that forwards the tap (e.g. row toggle).
+ */
+@Composable
+private fun PlanPickerGifThumb(
+    gifUrl: String?,
+    onClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(64.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xFFF1F5F9))
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
+        contentAlignment = Alignment.Center
+    ) {
+        if (gifUrl != null) {
+            GifWebView(url = gifUrl, modifier = Modifier.fillMaxSize())
+        } else {
+            Icon(
+                imageVector = Icons.Outlined.Image,
+                contentDescription = "No GIF available",
+                tint = Color(0xFF94A3B8),
+                modifier = Modifier.size(26.dp)
+            )
+        }
+    }
+}
+
+/** Backend GIF URL for a planned item (which carries no Exercise), or null. */
+private fun gifUrlForPlannedItem(name: String): String? =
+    ExerciseMedia.localGifAsset(name)?.let { ExerciseMedia.GIF_BASE_URL + it }
+
 @Composable
 fun PlanWorkoutPickerScreen(
     date: LocalDate,
@@ -1186,7 +1278,7 @@ fun PlanWorkoutPickerScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                    .padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -1229,7 +1321,7 @@ fun PlanWorkoutPickerScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 16.dp),
+            contentPadding = PaddingValues(top = 12.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             // Search field
@@ -1311,6 +1403,10 @@ fun PlanWorkoutPickerScreen(
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(22.dp)
+                                )
+                                PlanPickerGifThumb(
+                                    gifUrl = gifUrlForPlannedItem(item.name),
+                                    modifier = Modifier.padding(start = 10.dp)
                                 )
                                 Column(
                                     modifier = Modifier
@@ -1419,19 +1515,20 @@ fun PlanWorkoutPickerScreen(
             }
             items(filtered, key = { it.id + it.name }) { exercise ->
                 val isSelected = draft.any { it.name == exercise.name }
+                val onToggle = {
+                    if (isSelected) {
+                        draft.removeAll { it.name == exercise.name }
+                    } else {
+                        draft.add(exercise.toPlannedItem())
+                    }
+                }
                 Surface(
                     shape = RoundedCornerShape(14.dp),
                     color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.White,
                     shadowElevation = if (isSelected) 0.dp else 1.dp,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable {
-                            if (isSelected) {
-                                draft.removeAll { it.name == exercise.name }
-                            } else {
-                                draft.add(exercise.toPlannedItem())
-                            }
-                        }
+                        .clickable { onToggle() }
                         .then(
                             if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(14.dp))
                             else Modifier
@@ -1448,6 +1545,11 @@ fun PlanWorkoutPickerScreen(
                             contentDescription = null,
                             tint = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFFCBD5E1),
                             modifier = Modifier.size(22.dp)
+                        )
+                        PlanPickerGifThumb(
+                            gifUrl = exercise.gifUrl,
+                            onClick = onToggle,
+                            modifier = Modifier.padding(start = 10.dp)
                         )
                         Column(
                             modifier = Modifier
@@ -1478,7 +1580,7 @@ fun PlanWorkoutPickerScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color.White)
-                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 120.dp),
+                .padding(top = 16.dp, bottom = 120.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             if (!hasChanges) {
@@ -1516,13 +1618,46 @@ fun PlanWorkoutPickerScreen(
     }
 }
 
+/**
+ * 64dp GIF thumbnail for a planned exercise, or a photo-icon placeholder when
+ * the exercise has no GIF yet (only 5 catalog exercises do). Same pattern as
+ * the picker rows: the GIF animates via GifWebView, everything else gets the
+ * placeholder.
+ */
 @Composable
-fun PlannedExerciseCard(exercise: PlannedExerciseItem) {
+private fun ExerciseGifThumbnail(exerciseName: String, modifier: Modifier = Modifier) {
+    val gifFile = ExerciseMedia.localGifAsset(exerciseName)
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xFFF1F5F9)),
+        contentAlignment = Alignment.Center
+    ) {
+        if (gifFile != null) {
+            GifWebView(
+                url = ExerciseMedia.GIF_BASE_URL + gifFile,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Filled.Photo,
+                contentDescription = null,
+                tint = Color(0xFFCBD5E1),
+                modifier = Modifier.size(28.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun PlannedExerciseCard(exercise: PlannedExerciseItem, modifier: Modifier = Modifier) {
     ElevatedCard(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier
+            .fillMaxWidth()
+            .animateContentSize()
     ) {
         Column(
             modifier = Modifier
@@ -1532,9 +1667,13 @@ fun PlannedExerciseCard(exercise: PlannedExerciseItem) {
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                ExerciseGifThumbnail(
+                    exerciseName = exercise.name,
+                    modifier = Modifier.size(64.dp)
+                )
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = exercise.name,
@@ -1755,7 +1894,7 @@ fun BodyWeightStepScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFF8F9FA))
-            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 100.dp)
+            .padding(top = 8.dp, bottom = 100.dp)
     ) {
         // Top Back Row
         Row(
@@ -1929,7 +2068,7 @@ fun WorkoutDaysSelectionStepScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFF8F9FA))
-            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 100.dp)
+            .padding(top = 8.dp, bottom = 100.dp)
     ) {
         // Top Back Row
         Row(
