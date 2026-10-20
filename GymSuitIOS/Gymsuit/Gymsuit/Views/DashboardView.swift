@@ -4,6 +4,7 @@ enum DashboardTab: String, CaseIterable {
     case workouts = "Workouts"
     case home = "Home"
     case challenges = "Challenges"
+    case food = "Food"
     case settings = "Settings"
     
     var iconName: String {
@@ -11,6 +12,7 @@ enum DashboardTab: String, CaseIterable {
         case .workouts: return "dumbbell.fill"
         case .home: return "house.fill"
         case .challenges: return "person.3.fill"
+        case .food: return "fork.knife"
         case .settings: return "gearshape.fill"
         }
     }
@@ -51,6 +53,8 @@ struct DashboardView: View {
                         Text(authManager.currentSession?.firstName.isEmpty == false ? authManager.currentSession!.firstName : "Athlete")
                             .font(.system(size: 22, weight: .bold))
                             .foregroundColor(AppColors.textPrimary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
                     }
                     
                     Spacer()
@@ -99,45 +103,47 @@ struct DashboardView: View {
                 .padding(.bottom, 12)
                 
                 // 30-Day Horizontal Scroll Calendar Strip
-                ScrollViewReader { proxy in
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach(days) { day in
-                                let isSelected = Calendar.current.isDate(day.date, inSameDayAs: viewModel.selectedDate)
-                                Button(action: {
-                                    withAnimation(.spring()) {
-                                        viewModel.onDateSelected(day.date)
+                if selectedTab == .home {
+                    ScrollViewReader { proxy in
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 10) {
+                                ForEach(days) { day in
+                                    let isSelected = Calendar.current.isDate(day.date, inSameDayAs: viewModel.selectedDate)
+                                    Button(action: {
+                                        withAnimation(.spring()) {
+                                            viewModel.onDateSelected(day.date)
+                                        }
+                                    }) {
+                                        VStack(spacing: 6) {
+                                            Text(day.dayName)
+                                                .font(.system(size: 11, weight: .medium))
+                                                .foregroundColor(isSelected ? .white : AppColors.textSecondary)
+                                            Text(day.dayNumber)
+                                                .font(.system(size: 16, weight: .bold))
+                                                .foregroundColor(isSelected ? .white : AppColors.textPrimary)
+                                        }
+                                        .frame(width: 48, height: 68)
+                                        .background(isSelected ? AppColors.primary : Color.white)
+                                        .clipShape(RoundedRectangle(cornerRadius: 18))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 18)
+                                                .stroke(isSelected ? Color.clear : AppColors.border, lineWidth: 1)
+                                        )
+                                        .shadow(color: isSelected ? AppColors.primary.opacity(0.3) : Color.clear, radius: 6, y: 3)
                                     }
-                                }) {
-                                    VStack(spacing: 6) {
-                                        Text(day.dayName)
-                                            .font(.system(size: 11, weight: .medium))
-                                            .foregroundColor(isSelected ? .white : AppColors.textSecondary)
-                                        Text(day.dayNumber)
-                                            .font(.system(size: 16, weight: .bold))
-                                            .foregroundColor(isSelected ? .white : AppColors.textPrimary)
-                                    }
-                                    .frame(width: 48, height: 68)
-                                    .background(isSelected ? AppColors.primary : Color.white)
-                                    .clipShape(RoundedRectangle(cornerRadius: 18))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 18)
-                                            .stroke(isSelected ? Color.clear : AppColors.border, lineWidth: 1)
-                                    )
-                                    .shadow(color: isSelected ? AppColors.primary.opacity(0.3) : Color.clear, radius: 6, y: 3)
+                                    .id(day.id)
                                 }
-                                .id(day.id)
                             }
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 6)
                         }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 6)
-                    }
-                    .onAppear {
-                        generateDays()
-                        viewModel.onDateSelected(viewModel.selectedDate)
-                        if let lastDay = days.last {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                proxy.scrollTo(lastDay.id, anchor: .trailing)
+                        .onAppear {
+                            generateDays()
+                            viewModel.onDateSelected(viewModel.selectedDate)
+                            if let lastDay = days.last {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                    proxy.scrollTo(lastDay.id, anchor: .trailing)
+                                }
                             }
                         }
                     }
@@ -151,6 +157,8 @@ struct DashboardView: View {
                         .environmentObject(workoutSession)
                 } else if selectedTab == .challenges {
                     ChallengesView()
+                } else if selectedTab == .food {
+                    FoodLogView()
                 } else if selectedTab == .settings {
                     SettingsView(onBack: { selectedTab = .home }, onLogout: onLogout)
                 }
@@ -258,42 +266,6 @@ struct DashboardView: View {
                 
                 // Step milestone badges
                 StepBadgesSectionView()
-
-                // Featured Gym Workout Section
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Text("Today's Recommended Session")
-                            .font(.system(size: 17, weight: .bold))
-                            .foregroundColor(AppColors.textPrimary)
-                        Spacer()
-                    }
-                    
-                    ZStack(alignment: .bottomLeading) {
-                        Image("fitness_workout")
-                            .resizable()
-                            .scaledToFill()
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 180)
-                            .clipped()
-                        
-                        LinearGradient(
-                            colors: [Color.clear, Color.black.opacity(0.75)],
-                            startPoint: .center,
-                            endPoint: .bottom
-                        )
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Full Body Hypertrophy")
-                                .font(.system(size: 18, weight: .bold))
-                                .foregroundColor(.white)
-                            Text("45 min • 380 kcal • Intermediate")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(Color.white.opacity(0.85))
-                        }
-                        .padding(18)
-                    }
-                    .clipShape(RoundedRectangle(cornerRadius: 24))
-                }
             }
             .padding(.horizontal, 20)
             .padding(.top, 10)
