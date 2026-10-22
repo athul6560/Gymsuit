@@ -71,7 +71,8 @@ public enum ExerciseMedia {
         "dumbbell hammer curl": "hammer-curl.gif",
         "lever seated fly": "machine-chest-fly.gif",
         "dumbbell front raise": "dumbbell-front-raise.gif",
-        "cable pulldown": "cable-pulldown.gif"
+        "cable pulldown": "cable-pulldown.gif",
+        "cable lat pulldown full range of motion": "cable-lat-pulldown-full-range-of-motion.gif"
     ]
 
     public static func localGIFFile(for exerciseName: String) -> String? {
@@ -134,6 +135,10 @@ public struct LoggedWorkout: Codable, Identifiable {
 
     public var totalVolumeKg: Double {
         sets.reduce(0) { $0 + Double($1.reps) * $1.weightKg }
+    }
+
+    public var maxWeightKg: Double {
+        sets.map(\.weightKg).max() ?? 0
     }
 }
 

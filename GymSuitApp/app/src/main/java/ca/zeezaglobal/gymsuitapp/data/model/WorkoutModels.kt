@@ -60,7 +60,8 @@ object ExerciseMedia {
         "dumbbell hammer curl" to "hammer-curl.gif",
         "lever seated fly" to "machine-chest-fly.gif",
         "dumbbell front raise" to "dumbbell-front-raise.gif",
-        "cable pulldown" to "cable-pulldown.gif"
+        "cable pulldown" to "cable-pulldown.gif",
+        "cable lat pulldown full range of motion" to "cable-lat-pulldown-full-range-of-motion.gif"
     )
 
     fun localGifAsset(exerciseName: String): String? =
@@ -99,5 +100,6 @@ data class LoggedWorkout(
 ) {
     val totalReps: Int get() = sets.sumOf { it.reps }
     val totalVolumeKg: Double get() = sets.sumOf { it.reps * it.weightKg }
+    val maxWeightKg: Double get() = sets.maxOfOrNull { it.weightKg } ?: 0.0
 }
 
