@@ -28,16 +28,33 @@ public struct Exercise: Codable, Identifiable, Hashable {
         case img
     }
 
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = (try? container.decodeIfPresent(String.self, forKey: .id)) ?? UUID().uuidString
+        self.name = (try? container.decodeIfPresent(String.self, forKey: .name)) ?? ""
+        self.bodyPart = (try? container.decodeIfPresent(String.self, forKey: .bodyPart)) ?? "Other"
+        self.equipment = (try? container.decodeIfPresent(String.self, forKey: .equipment)) ?? "other"
+        self.primaryMuscle = (try? container.decodeIfPresent(String.self, forKey: .primaryMuscle)) ?? ""
+        self.secondaryMuscles = (try? container.decodeIfPresent([String].self, forKey: .secondaryMuscles)) ?? []
+        self.instructions = (try? container.decodeIfPresent([String].self, forKey: .instructions)) ?? []
+        self.gif = (try? container.decodeIfPresent(String.self, forKey: .gif)) ?? ""
+        self.img = (try? container.decodeIfPresent(String.self, forKey: .img)) ?? ""
+    }
+
     public var muscleGroup: String {
         ExerciseMuscleGroups.group(for: bodyPart)
     }
 
     /// Exercise GIF (own dataset), served by the backend on demand.
-    /// Nil when this exercise has no GIF yet — the old Gym Visual remote
-    /// GIFs are no longer used.
     public var gifURL: URL? {
-        guard let file = ExerciseMedia.localGIFFile(for: name) else { return nil }
-        return URL(string: ExerciseMedia.gifBaseURL + file)
+        if !gif.isEmpty {
+            let filename = gif.hasSuffix(".gif") ? gif : "\(gif).gif"
+            return URL(string: ExerciseMedia.gifBaseURL + filename)
+        }
+        if let file = ExerciseMedia.localGIFFile(for: name) {
+            return URL(string: ExerciseMedia.gifBaseURL + file)
+        }
+        return nil
     }
 
     public var imageURL: URL? {
@@ -66,13 +83,17 @@ public enum ExerciseMedia {
     private static let localGIFs: [String: String] = [
         "barbell bench press": "bench-press.gif",
         "barbell full squat": "weighted-squat.gif",
+        "weighted squat": "weighted-squat.gif",
         "barbell deadlift": "deadlift.gif",
         "dumbbell biceps curl": "dumbbell-curl.gif",
         "dumbbell hammer curl": "hammer-curl.gif",
         "lever seated fly": "machine-chest-fly.gif",
         "dumbbell front raise": "dumbbell-front-raise.gif",
+        "dumbbell lateral raise": "dumbbell-lateral-raise.gif",
         "cable pulldown": "cable-pulldown.gif",
-        "cable lat pulldown full range of motion": "cable-lat-pulldown-full-range-of-motion.gif"
+        "cable lat pulldown full range of motion": "cable-lat-pulldown-full-range-of-motion.gif",
+        "bodyweight squat": "squat.gif",
+        "squat": "squat.gif"
     ]
 
     public static func localGIFFile(for exerciseName: String) -> String? {
